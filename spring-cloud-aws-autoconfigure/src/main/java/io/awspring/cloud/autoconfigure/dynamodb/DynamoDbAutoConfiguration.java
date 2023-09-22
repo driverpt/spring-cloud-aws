@@ -15,13 +15,19 @@
  */
 package io.awspring.cloud.autoconfigure.dynamodb;
 
+import java.io.IOException;
+import java.util.Optional;
+
 import io.awspring.cloud.autoconfigure.core.AwsClientBuilderConfigurer;
 import io.awspring.cloud.autoconfigure.core.AwsClientCustomizer;
 import io.awspring.cloud.autoconfigure.core.CredentialsProviderAutoConfiguration;
 import io.awspring.cloud.autoconfigure.core.RegionProviderAutoConfiguration;
-import io.awspring.cloud.dynamodb.*;
-import java.io.IOException;
-import java.util.Optional;
+import io.awspring.cloud.dynamodb.DefaultDynamoDbTableNameResolver;
+import io.awspring.cloud.dynamodb.DefaultDynamoDbTableSchemaResolver;
+import io.awspring.cloud.dynamodb.DynamoDbOperations;
+import io.awspring.cloud.dynamodb.DynamoDbTableNameResolver;
+import io.awspring.cloud.dynamodb.DynamoDbTableSchemaResolver;
+import io.awspring.cloud.dynamodb.DynamoDbTemplate;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -64,6 +70,32 @@ public class DynamoDbAutoConfiguration {
 	@ConditionalOnClass(name = "software.amazon.dax.ClusterDaxClient")
 	static class DaxDynamoDbClient {
 
+		private software.amazon.dax.Configuration.Builder toAwsDaxConfiguration(DaxProperties daxProperties) {
+			PropertyMapper propertyMapper = PropertyMapper.get();
+			software.amazon.dax.Configuration.Builder configuration = software.amazon.dax.Configuration.builder();
+			propertyMapper.from(daxProperties.getIdleTimeoutMillis()).whenNonNull()
+				.to(configuration::idleTimeoutMillis);
+			propertyMapper.from(daxProperties.getConnectionTtlMillis()).whenNonNull()
+				.to(configuration::connectionTtlMillis);
+			propertyMapper.from(daxProperties.getConnectTimeoutMillis()).whenNonNull()
+				.to(configuration::connectTimeoutMillis);
+			propertyMapper.from(daxProperties.getRequestTimeoutMillis()).whenNonNull()
+				.to(configuration::requestTimeoutMillis);
+			propertyMapper.from(daxProperties.getWriteRetries()).whenNonNull().to(configuration::writeRetries);
+			propertyMapper.from(daxProperties.getReadRetries()).whenNonNull().to(configuration::readRetries);
+			propertyMapper.from(daxProperties.getClusterUpdateIntervalMillis()).whenNonNull()
+				.to(configuration::clusterUpdateIntervalMillis);
+			propertyMapper.from(daxProperties.getEndpointRefreshTimeoutMillis()).whenNonNull()
+				.to(configuration::endpointRefreshTimeoutMillis);
+			propertyMapper.from(daxProperties.getMaxConcurrency()).whenNonNull().to(configuration::maxConcurrency);
+			propertyMapper.from(daxProperties.getMaxPendingConnectionAcquires()).whenNonNull()
+				.to(configuration::maxPendingConnectionAcquires);
+			propertyMapper.from(daxProperties.getSkipHostNameVerification()).whenNonNull()
+				.to(configuration::skipHostNameVerification);
+
+			return configuration;
+		}
+
 		@ConditionalOnMissingBean
 		@Bean
 		public DynamoDbClient daxDynamoDbClient(DynamoDbProperties properties,
@@ -71,27 +103,7 @@ public class DynamoDbAutoConfiguration {
 												AwsRegionProvider regionProvider) throws IOException {
 			DaxProperties daxProperties = properties.getDax();
 
-			PropertyMapper propertyMapper = PropertyMapper.get();
-			software.amazon.dax.Configuration.Builder configuration = software.amazon.dax.Configuration.builder();
-			propertyMapper.from(daxProperties.getIdleTimeoutMillis()).whenNonNull()
-					.to(configuration::idleTimeoutMillis);
-			propertyMapper.from(daxProperties.getConnectionTtlMillis()).whenNonNull()
-					.to(configuration::connectionTtlMillis);
-			propertyMapper.from(daxProperties.getConnectTimeoutMillis()).whenNonNull()
-					.to(configuration::connectTimeoutMillis);
-			propertyMapper.from(daxProperties.getRequestTimeoutMillis()).whenNonNull()
-					.to(configuration::requestTimeoutMillis);
-			propertyMapper.from(daxProperties.getWriteRetries()).whenNonNull().to(configuration::writeRetries);
-			propertyMapper.from(daxProperties.getReadRetries()).whenNonNull().to(configuration::readRetries);
-			propertyMapper.from(daxProperties.getClusterUpdateIntervalMillis()).whenNonNull()
-					.to(configuration::clusterUpdateIntervalMillis);
-			propertyMapper.from(daxProperties.getEndpointRefreshTimeoutMillis()).whenNonNull()
-					.to(configuration::endpointRefreshTimeoutMillis);
-			propertyMapper.from(daxProperties.getMaxConcurrency()).whenNonNull().to(configuration::maxConcurrency);
-			propertyMapper.from(daxProperties.getMaxPendingConnectionAcquires()).whenNonNull()
-					.to(configuration::maxPendingConnectionAcquires);
-			propertyMapper.from(daxProperties.getSkipHostNameVerification()).whenNonNull()
-					.to(configuration::skipHostNameVerification);
+			software.amazon.dax.Configuration.Builder configuration = toAwsDaxConfiguration(daxProperties);
 
 			configuration.region(AwsClientBuilderConfigurer.resolveRegion(properties, regionProvider))
 					.credentialsProvider(credentialsProvider).url(properties.getDax().getUrl());
@@ -105,27 +117,7 @@ public class DynamoDbAutoConfiguration {
 								  						  AwsRegionProvider regionProvider) throws IOException {
 			DaxProperties daxProperties = properties.getDax();
 
-			PropertyMapper propertyMapper = PropertyMapper.get();
-			software.amazon.dax.Configuration.Builder configuration = software.amazon.dax.Configuration.builder();
-			propertyMapper.from(daxProperties.getIdleTimeoutMillis()).whenNonNull()
-					.to(configuration::idleTimeoutMillis);
-			propertyMapper.from(daxProperties.getConnectionTtlMillis()).whenNonNull()
-					.to(configuration::connectionTtlMillis);
-			propertyMapper.from(daxProperties.getConnectTimeoutMillis()).whenNonNull()
-					.to(configuration::connectTimeoutMillis);
-			propertyMapper.from(daxProperties.getRequestTimeoutMillis()).whenNonNull()
-					.to(configuration::requestTimeoutMillis);
-			propertyMapper.from(daxProperties.getWriteRetries()).whenNonNull().to(configuration::writeRetries);
-			propertyMapper.from(daxProperties.getReadRetries()).whenNonNull().to(configuration::readRetries);
-			propertyMapper.from(daxProperties.getClusterUpdateIntervalMillis()).whenNonNull()
-					.to(configuration::clusterUpdateIntervalMillis);
-			propertyMapper.from(daxProperties.getEndpointRefreshTimeoutMillis()).whenNonNull()
-					.to(configuration::endpointRefreshTimeoutMillis);
-			propertyMapper.from(daxProperties.getMaxConcurrency()).whenNonNull().to(configuration::maxConcurrency);
-			propertyMapper.from(daxProperties.getMaxPendingConnectionAcquires()).whenNonNull()
-					.to(configuration::maxPendingConnectionAcquires);
-			propertyMapper.from(daxProperties.getSkipHostNameVerification()).whenNonNull()
-					.to(configuration::skipHostNameVerification);
+			software.amazon.dax.Configuration.Builder configuration = toAwsDaxConfiguration(daxProperties);
 
 			configuration.region(AwsClientBuilderConfigurer.resolveRegion(properties, regionProvider))
 					.credentialsProvider(credentialsProvider).url(properties.getDax().getUrl());
@@ -144,7 +136,6 @@ public class DynamoDbAutoConfiguration {
 			return awsClientBuilderConfigurer
 					.configure(DynamoDbClient.builder(), properties, configurer.getIfAvailable()).build();
 		}
-
 	}
 
 	@Conditional(MissingDaxUrlCondition.class)
@@ -162,32 +153,39 @@ public class DynamoDbAutoConfiguration {
 
 	}
 
-	@ConditionalOnMissingBean
-	@ConditionalOnClass(DynamoDbEnhancedClient.class)
-	@Bean
-	public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient dynamoDbClient) {
-		return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
+	@ConditionalOnClass(name = "software.amazon.awssdk.enhanced.dynamodb.DynamoDbEnhancedClient")
+	@Configuration(proxyBeanMethods = false)
+	static class DynamoDbEnhancedClientConfiguration {
+		@ConditionalOnMissingBean
+		@ConditionalOnClass(DynamoDbEnhancedClient.class)
+		@Bean
+		public DynamoDbEnhancedClient dynamoDbEnhancedClient(DynamoDbClient dynamoDbClient) {
+			return DynamoDbEnhancedClient.builder().dynamoDbClient(dynamoDbClient).build();
+		}
+
+		@ConditionalOnMissingBean
+		@ConditionalOnClass(DynamoDbEnhancedAsyncClient.class)
+		@Bean
+		public DynamoDbEnhancedAsyncClient dynamoDbEnhancedAsyncClient(DynamoDbAsyncClient dynamoDbClient) {
+			return DynamoDbEnhancedAsyncClient.builder().dynamoDbClient(dynamoDbClient).build();
+		}
 	}
 
-	@ConditionalOnMissingBean
-	@ConditionalOnClass(DynamoDbEnhancedAsyncClient.class)
-	@Bean
-	public DynamoDbEnhancedAsyncClient dynamoDbEnhancedAsyncClient(DynamoDbAsyncClient dynamoDbClient) {
-		return DynamoDbEnhancedAsyncClient.builder().dynamoDbClient(dynamoDbClient).build();
-	}
-
-	@ConditionalOnClass(DynamoDbTemplate.class)
-	@ConditionalOnMissingBean(DynamoDbOperations.class)
-	@Bean
-	public DynamoDbTemplate dynamoDBTemplate(DynamoDbProperties properties,
-			DynamoDbEnhancedClient dynamoDbEnhancedClient, Optional<DynamoDbTableSchemaResolver> tableSchemaResolver,
-			Optional<DynamoDbTableNameResolver> tableNameResolver) {
-		DynamoDbTableSchemaResolver tableSchemaRes = tableSchemaResolver
+	@ConditionalOnClass(name = "io.awspring.cloud.dynamodb.DynamoDbOperations")
+	@Configuration(proxyBeanMethods = false)
+	static class DynamoDbTemplateConfiguration {
+		@ConditionalOnMissingBean(DynamoDbOperations.class)
+		@Bean
+		public DynamoDbTemplate dynamoDBTemplate(DynamoDbProperties properties,
+												 DynamoDbEnhancedClient dynamoDbEnhancedClient, Optional<DynamoDbTableSchemaResolver> tableSchemaResolver,
+												 Optional<DynamoDbTableNameResolver> tableNameResolver) {
+			DynamoDbTableSchemaResolver tableSchemaRes = tableSchemaResolver
 				.orElseGet(DefaultDynamoDbTableSchemaResolver::new);
 
-		DynamoDbTableNameResolver tableNameRes = tableNameResolver
+			DynamoDbTableNameResolver tableNameRes = tableNameResolver
 				.orElseGet(() -> new DefaultDynamoDbTableNameResolver(properties.getTablePrefix()));
-		return new DynamoDbTemplate(dynamoDbEnhancedClient, tableSchemaRes, tableNameRes);
+			return new DynamoDbTemplate(dynamoDbEnhancedClient, tableSchemaRes, tableNameRes);
+		}
 	}
 
 	static class MissingDaxUrlCondition extends NoneNestedConditions {
